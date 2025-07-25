@@ -7,6 +7,10 @@ const VisitorService = require("./services/visitor.service");
 const PageviewService = require("./services/pageview.service");
 const routes = require("./routes");
 const { Types } = require("mongoose");
+const cors = require("cors");
+
+app.use(cors("*"));
+app.use(express.json());
 app.use("/", routes);
 
 app.listen(port, async () => {
@@ -18,6 +22,6 @@ app.listen(port, async () => {
     // await VisitorService.createIndex();
     // await VisitorService.insertDocument();
 
-    await PageviewService.createIndex();
-    await PageviewService.insertDocument();
+    // await PageviewService.createIndex();
+    // await PageviewService.insertDocument();
 });

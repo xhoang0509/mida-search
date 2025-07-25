@@ -72,6 +72,10 @@ const VisitorService = {
             console.error("❌ Error while parsing:", err);
         });
     },
+    query: async (query) => {
+        const result = await ElasticService.search("visitor", query);
+        return result;
+    },
 };
 
 module.exports = VisitorService;

@@ -93,6 +93,38 @@ const SessionService = {
             console.error("❌ Error while parsing:", err);
         });
     },
+    query: async ({ shopId, filter, limit, skip }) => {
+        console.log(filter);
+        const body = {
+            from: skip,
+            size: limit,
+            query: {
+                bool: {
+                    must: [
+                        // {
+                        //     term: {
+                        //         shop: shopId,
+                        //     },
+                        // },
+                        {
+                            range: {
+                                createdAt: {
+                                    gte: filter.createdAt["$gte"],
+                                    lte: filter.createdAt["$lte"],
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        };
+        const result = await ElasticService.search("session", body);
+        if (result?.body) {
+            console.log("Total documents: ", result?.body?.hits?.total?.value);
+            return result?.body;
+        }
+        return [];
+    },
 };
 
 module.exports = SessionService;

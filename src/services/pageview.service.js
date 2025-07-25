@@ -73,6 +73,10 @@ const PageviewService = {
             console.error("❌ Error while parsing:", err);
         });
     },
+    query: async (query) => {
+        const result = await ElasticService.search("pageview", query);
+        return result;
+    },
 };
 
 module.exports = PageviewService;

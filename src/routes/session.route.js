@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const SessionController = require("../controllers/session.controller");
 
-router.get("/", SessionController.findAll);
-router.get("/:id", SessionController.findOne);
+router.post("/", SessionController.findAll);
 
 module.exports = router;

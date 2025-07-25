@@ -13,6 +13,7 @@
     "license": "ISC",
     "dependencies": {
         "@elastic/elasticsearch": "7.17.0",
+        "cors": "^2.8.5",
         "express": "^5.1.0",
         "mongoose": "^8.16.4",
         "stream-chain": "^3.4.0",
