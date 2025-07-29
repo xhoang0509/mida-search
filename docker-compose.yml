@@ -9,7 +9,7 @@ services:
             - ELASTIC_PASSWORD=elastic123
             - xpack.security.authc.anonymous.roles=superuser
             - xpack.security.authc.anonymous.authz_exception=true
-            - xpack.security.enabled=false
+            - xpack.security.enabled=true
             - xpack.security.http.ssl.enabled=false
             # config memory: 4g
             - ES_JAVA_OPTS=-Xms4g -Xmx4g

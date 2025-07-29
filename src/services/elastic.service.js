@@ -31,12 +31,28 @@ const ElasticService = {
             index: indexName,
         });
     },
-    // insert document
-    insertDocument: async (indexName,id,  document) => {
+    // Document
+    insertDocument: async (indexName, id, document) => {
         return await elasticClient.index({
             index: indexName,
             id: id,
             body: document,
+        });
+    },
+    updateDocument: async (indexName, id, document) => {
+        return await elasticClient.update({
+            index: indexName,
+            id: id,
+            body: {
+                doc: document,
+                doc_as_upsert: true,
+            },
+        });
+    },
+    deleteDocument: async (indexName, id) => {
+        return await elasticClient.delete({
+            index: indexName,
+            id: id,
         });
     },
     // search

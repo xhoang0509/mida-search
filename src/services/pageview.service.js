@@ -5,6 +5,7 @@ const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
 const { streamArray } = require("stream-json/streamers/StreamArray");
 const ElasticService = require("./elastic.service");
+const PageviewHelper = require("@/helpers/pageview.helper");
 const filePath = path.join(cwd(), "./src/static_mongo/mida_srr.pageviews.json");
 
 const pipeline = chain([fs.createReadStream(filePath), parser(), streamArray()]);
@@ -35,6 +36,35 @@ const PageviewService = {
         } catch (error) {
             console.log(error?.meta?.body?.error?.type);
         }
+    },
+    insert: async (data) => {
+        const id = data._id;
+        delete data._id;
+
+        await ElasticService.insertDocument("pageview", id, data)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while inserting pageview: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {
+                // console.log(JSON.stringify(body, null, 2));
+            });
+    },
+    updateDocument: async (id, data) => {
+        if (!id || !data) return;
+
+        await ElasticService.updateDocument("pageview", id, data)
+            .catch((err) => {
+                console.log(err.meta.body.error);
+                logger.error(__filename, "APP", `Error while updating pageview: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {});
+    },
+    deleteDocument: async (id) => {
+        await ElasticService.deleteDocument("pageview", id)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while deleting pageview: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {});
     },
     insertDocument: async () => {
         let count = 0;
@@ -73,8 +103,24 @@ const PageviewService = {
             console.error("❌ Error while parsing:", err);
         });
     },
-    query: async (query) => {
-        const result = await ElasticService.search("pageview", query);
+    query: async ({ shopId, filter, sessionFilter }) => {
+        const elk_query = PageviewHelper.build(filter, sessionFilter, shopId);
+        console.log(JSON.stringify(elk_query));
+        const body = {
+            track_total_hits: true,
+            _source: ["session"],
+            size: 0,
+            query: elk_query,
+            aggs: {
+                unique_sessions: {
+                    terms: {
+                        field: "session",
+                        size: 10000,
+                    },
+                },
+            },
+        };
+        const result = await ElasticService.search("pageview", body);
         return result;
     },
 };

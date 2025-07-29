@@ -4,7 +4,9 @@ const { cwd } = require("process");
 const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
 const { streamArray } = require("stream-json/streamers/StreamArray");
+const logger = require("@/logger");
 const ElasticService = require("./elastic.service");
+const SessionQueryBuilder = require("@/helpers/session.helper");
 const filePath = path.join(cwd(), "./src/static_mongo/mida_srr.sessions.json");
 
 const pipeline = chain([fs.createReadStream(filePath), parser(), streamArray()]);
@@ -56,6 +58,35 @@ const SessionService = {
             console.log(error?.meta?.body?.error?.type);
         }
     },
+    insert: async (data) => {
+        const id = data._id;
+        delete data._id;
+
+        await ElasticService.insertDocument("session", id, data)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while inserting session: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {
+                // console.log(JSON.stringify(body, null, 2));
+            });
+    },
+    updateDocument: async (id, data) => {
+        if (!id || !data) return;
+
+        await ElasticService.updateDocument("session", id, data)
+            .catch((err) => {
+                console.log(err.meta.body.error);
+                logger.error(__filename, "APP", `Error while updating session: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {});
+    },
+    deleteDocument: async (id) => {
+        await ElasticService.deleteDocument("session", id)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while deleting session: ${err.meta.body.error.type}`);
+            })
+            .then((body) => {});
+    },
     insertDocument: async () => {
         let count = 0;
         pipeline.on("data", async ({ value }) => {
@@ -94,36 +125,45 @@ const SessionService = {
         });
     },
     query: async ({ shopId, filter, limit, skip }) => {
-        console.log(filter);
+        const query = SessionQueryBuilder.build(filter, shopId);
+
         const body = {
+            track_total_hits: true,
             from: skip,
             size: limit,
-            query: {
-                bool: {
-                    must: [
-                        // {
-                        //     term: {
-                        //         shop: shopId,
-                        //     },
-                        // },
-                        {
-                            range: {
-                                createdAt: {
-                                    gte: filter.createdAt["$gte"],
-                                    lte: filter.createdAt["$lte"],
-                                },
-                            },
-                        },
-                    ],
-                },
-            },
+            sort: [{ last_active: { order: "desc" } }],
+            query: query,
         };
         const result = await ElasticService.search("session", body);
         if (result?.body) {
-            console.log("Total documents: ", result?.body?.hits?.total?.value);
-            return result?.body;
+            const totalDocs = result?.body?.hits?.total?.value;
+            const totalPages = Math.ceil(totalDocs / limit);
+            const currentPage = Math.floor(skip / limit) + 1;
+
+            let visitor_ids = result?.body?.hits?.hits?.map((hit) => hit._source?.visitor);
+            visitor_ids = [...new Set(visitor_ids)];
+            return {
+                ...result?.body,
+                pagination: {
+                    total: totalDocs,
+                    totalPages: totalPages,
+                    currentPage: currentPage,
+                    limit: limit,
+                    skip: skip,
+                },
+                visitor_ids: visitor_ids,
+            };
         }
-        return [];
+        return {
+            hits: { hits: [], total: { value: 0 } },
+            pagination: {
+                total: 0,
+                totalPages: 0,
+                currentPage: 1,
+                limit: limit,
+                skip: skip,
+            },
+        };
     },
 };
 

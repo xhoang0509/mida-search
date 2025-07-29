@@ -1,25 +1,31 @@
 {
     "name": "mida-search",
     "version": "1.0.0",
-    "description": "``` mkdir -p ./data/elasticsearch mkdir -p ./data/kibana sudo chmod -R 777 ./data/elasticsearch sudo chmod -R 777 ./data/kibana docker compose up -d ```",
+    "description": "",
+    "author": "Xhoang (Hwang Jiu Bao)",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "node src/index.js",
-        "dev": "nodemon src/index.js"
+        "start": "NODE_ENV=production node -r module-alias/register src/index.js",
+        "dev": "NODE_ENV=development nodemon -r module-alias/register src/index.js",
+        "job": "NODE_ENV=production node -r module-alias/register src/jobs/index.js"
     },
     "keywords": [],
-    "author": "",
     "license": "ISC",
     "dependencies": {
         "@elastic/elasticsearch": "7.17.0",
+        "amqplib": "^0.10.8",
         "cors": "^2.8.5",
+        "dotenv": "^17.2.1",
         "express": "^5.1.0",
+        "module-alias": "^2.2.3",
         "mongoose": "^8.16.4",
         "stream-chain": "^3.4.0",
         "stream-json": "^1.9.1"
     },
     "devDependencies": {
         "nodemon": "^3.1.10"
+    },
+    "_moduleAliases": {
+        "@": "./src"
     }
 }
