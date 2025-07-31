@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const logger = require("@/logger");
 const { cwd } = require("process");
 const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
@@ -15,7 +16,14 @@ const PageviewService = {
         const mapping = {
             mappings: {
                 properties: {
-                    href: { type: "keyword" },
+                    href: {
+                        type: "text",
+                        fields: {
+                            keyword: {
+                                type: "keyword",
+                            },
+                        },
+                    },
                     status: { type: "boolean" },
                     key: { type: "keyword" },
                     width: { type: "integer" },
@@ -25,6 +33,7 @@ const PageviewService = {
                     shop: { type: "keyword" },
                     session: { type: "keyword" },
                     page: { type: "keyword" },
+                    type: { type: "keyword" },
                     start_time: { type: "long" },
                     createdAt: { type: "date" },
                     updatedAt: { type: "date" },
@@ -32,7 +41,14 @@ const PageviewService = {
             },
         };
         try {
+            // check index exists
+            const exists = await ElasticService.indexExists("pageview");
+            if (exists?.body) {
+                console.log("Index 'pageview' already exists.");
+                return;
+            }
             await ElasticService.createIndex("pageview", mapping);
+            console.log("Index 'pageview' created successfully.");
         } catch (error) {
             console.log(error?.meta?.body?.error?.type);
         }
@@ -59,12 +75,27 @@ const PageviewService = {
             })
             .then((body) => {});
     },
-    deleteDocument: async (id) => {
+    deleteDocById: async (id) => {
         await ElasticService.deleteDocument("pageview", id)
             .catch((err) => {
-                logger.error(__filename, "APP", `Error while deleting pageview: ${err.meta.body.error.type}`);
+                logger.error(__filename, "APP", `Error while deleting pageview" ${err?.meta?.body?.error}`);
             })
-            .then((body) => {});
+            .then((data) => {
+                if (data?.body?.deleted) {
+                    console.log(`Deleted ${data?.body?.deleted} pageview"`);
+                }
+            });
+    },
+    deleteDocByQuery: async (query) => {
+        await ElasticService.deleteDocumentByQuery("pageview", query)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while deleting pageview: ${err.meta.body.error?.type}`);
+            })
+            .then((data) => {
+                if (data?.body?.deleted) {
+                    console.log(`Deleted ${data?.body?.deleted} pageviews`);
+                }
+            });
     },
     insertDocument: async () => {
         let count = 0;
@@ -102,6 +133,13 @@ const PageviewService = {
         pipeline.on("error", (err) => {
             console.error("❌ Error while parsing:", err);
         });
+    },
+    bulkInsert: async (data) => {
+        try {
+            await ElasticService.bulkInsert("pageview", data);
+        } catch (error) {
+            logger.error(__filename, "APP", `Error while bulk inserting pageview: ${error.message}`);
+        }
     },
     query: async ({ shopId, filter, sessionFilter }) => {
         const elk_query = PageviewHelper.build(filter, sessionFilter, shopId);

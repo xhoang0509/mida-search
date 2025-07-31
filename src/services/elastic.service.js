@@ -11,6 +11,11 @@ const ElasticService = {
             body: mapping,
         });
     },
+    indexExists: async (indexName) => {
+        return await elasticClient.indices.exists({
+            index: indexName,
+        });
+    },
     deleteIndex: async (indexName) => {
         return await elasticClient.indices.delete({
             index: indexName,
@@ -39,6 +44,13 @@ const ElasticService = {
             body: document,
         });
     },
+    bulkInsert: async (indexName, documents) => {
+        const body = documents.flatMap((doc) => {
+            const { _id, ...rest } = doc;
+            return [{ index: { _index: indexName, _id } }, rest];
+        });
+        return await elasticClient.bulk({ body });
+    },
     updateDocument: async (indexName, id, document) => {
         return await elasticClient.update({
             index: indexName,
@@ -49,10 +61,34 @@ const ElasticService = {
             },
         });
     },
+    increaseField: async (indexName, id, field, value) => {
+        return await elasticClient.update({
+            index: indexName,
+            id: id,
+            body: {
+                script: {
+                    source: `if (ctx._source.${field} == null) { ctx._source.${field} = params.value } else { ctx._source.${field} += params.value }`,
+                    lang: "painless",
+                    params: {
+                        value: value,
+                    },
+                },
+                upsert: {
+                    [field]: value,
+                },
+            },
+        });
+    },
     deleteDocument: async (indexName, id) => {
         return await elasticClient.delete({
             index: indexName,
             id: id,
+        });
+    },
+    deleteDocumentByQuery: async (indexName, query) => {
+        return await elasticClient.deleteByQuery({
+            index: indexName,
+            body: query,
         });
     },
     // search

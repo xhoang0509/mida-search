@@ -3,13 +3,11 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 7777;
-const ElasticService = require("./services/elastic.service");
-const SessionService = require("./services/session.service");
-const VisitorService = require("./services/visitor.service");
-const PageviewService = require("./services/pageview.service");
+
 const routes = require("./routes");
 const cors = require("cors");
 const { initRabbitMQ } = require("./queues");
+const ElkService = require("./services/elk.service");
 
 app.use(cors("*"));
 app.use(express.json());
@@ -20,11 +18,6 @@ app.listen(port, async () => {
     await initRabbitMQ();
     console.log(`App is running on post ${port} 🚀️`);
 
-    // await SessionService.createIndex();
-    // await SessionService.insertDocument();
-    // await VisitorService.createIndex();
-    // await VisitorService.insertDocument();
-
-    // await PageviewService.createIndex();
-    // await PageviewService.insertDocument();
+    // Init ElasticSearch Indexes
+    await ElkService.initIndexes();
 });

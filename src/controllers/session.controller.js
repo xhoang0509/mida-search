@@ -52,6 +52,7 @@ const SessionController = {
                 limit: _limit,
                 skip: _skip,
             });
+            visitorIdsMap = sessions?.visitor_ids;
         }
 
         // Get visitors from visitorIds
@@ -76,8 +77,8 @@ const SessionController = {
                 },
             });
             visitors = ElasticHelper.getHits(visitors?.body);
-            console.log(visitors,visitorIdsMap );
             sessionList = ElasticHelper.getHits(sessions);
+
             sessionList = sessionList.map((session) => {
                 const visitor = visitors.find((visitor) => visitor._id === session.visitor);
                 return {

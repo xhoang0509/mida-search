@@ -1,11 +1,12 @@
 const fs = require("fs");
 const path = require("path");
+const logger = require("@/logger");
 const { cwd } = require("process");
 const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
 const { streamArray } = require("stream-json/streamers/StreamArray");
 const ElasticService = require("./elastic.service");
-const { VisitorQueryBuilder } = require("@/helpers/visitor.helper");
+const VisitorHelper = require("@/helpers/visitor.helper");
 const { ElasticQuery } = require("@/helpers/elastic.helper");
 const filePath = path.join(cwd(), "./src/static_mongo/mida_srr.visitors.json");
 
@@ -26,6 +27,7 @@ const VisitorService = {
                     active: { type: "boolean" },
                     lastActive: { type: "date" },
                     display_id: { type: "integer" },
+                    display_name: { type: "keyword" },
                     visit_number: { type: "integer" },
                     shop: { type: "keyword" },
                     createdAt: { type: "date" },
@@ -34,7 +36,14 @@ const VisitorService = {
             },
         };
         try {
+            // check index exists
+            const exists = await ElasticService.indexExists("visitor");
+            if (exists?.body) {
+                console.log("Index 'visitor' already exists.");
+                return;
+            }
             await ElasticService.createIndex("visitor", mapping);
+            console.log("Index 'visitor' created successfully.");
         } catch (error) {
             console.log(error?.meta?.body?.error?.type);
         }
@@ -45,12 +54,9 @@ const VisitorService = {
 
         await ElasticService.insertDocument("visitor", id, data)
             .catch((err) => {
-                console.log(err.meta.body.error);
-                logger.error(__filename, "APP", `Error while inserting visitor: ${err.meta.body.error.type}`);
+                logger.error(__filename, "APP", `Error while inserting visitor: ${err?.meta?.body?.error?.type}`);
             })
-            .then((body) => {
-                // console.log(JSON.stringify(body, null, 2));
-            });
+            .then((body) => {});
     },
     updateDocument: async (id, data) => {
         if (!id || !data) return;
@@ -58,15 +64,22 @@ const VisitorService = {
         delete data._id;
         await ElasticService.updateDocument("visitor", id, data)
             .catch((err) => {
-                console.log(err.meta.body.error);
-                logger.error(__filename, "APP", `Error while updating visitor: ${err.meta.body.error.type}`);
+                logger.error(__filename, "APP", `Error while updating visitor: ${err?.meta?.body?.error?.type}`);
             })
             .then((body) => {});
     },
-    deleteDocument: async (id) => {
+    deleteDocById: async (id) => {
         await ElasticService.deleteDocument("visitor", id)
             .catch((err) => {
-                logger.error(__filename, "APP", `Error while deleting visitor: ${err.meta.body.error.type}`);
+                console.log(err);
+                logger.error(__filename, "APP", `Error while deleting visitor: ${err?.meta?.body?.error?.type}`);
+            })
+            .then((body) => {});
+    },
+    deleteDocByQuery: async (query) => {
+        await ElasticService.deleteDocumentByQuery("visitor", query)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while deleting visitor: ${err?.meta?.body?.error?.type}`);
             })
             .then((body) => {});
     },
@@ -106,8 +119,15 @@ const VisitorService = {
             console.error("❌ Error while parsing:", err);
         });
     },
+    bulkInsert: async (data) => {
+        try {
+            await ElasticService.bulkInsert("visitor", data);
+        } catch (error) {
+            logger.error(__filename, "APP", `Error while bulk inserting visitor: ${error.message}`);
+        }
+    },
     query: async ({ shopId, filter }) => {
-        const query = VisitorQueryBuilder.build(filter, shopId);
+        const query = VisitorHelper.build(filter, shopId);
         const body = {
             track_total_hits: true,
             _source: ["session"],

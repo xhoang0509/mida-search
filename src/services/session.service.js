@@ -24,7 +24,7 @@ const SessionService = {
                     location: { type: "keyword" },
                     address: { type: "object" },
                     ip: { type: "keyword" },
-                    tags: { type: "keyword" },
+                    tags: { type: "object" },
                     customer_id: { type: "keyword" },
                     customer_email: { type: "keyword" },
                     type: { type: "keyword" },
@@ -44,18 +44,32 @@ const SessionService = {
                     visit_number: { type: "integer" },
                     relevance_score: { type: "float" },
                     page_per_session: { type: "integer" },
-                    exit_page: { type: "keyword" },
-                    events: { type: "object" },
-                    orders: { type: "object" },
+                    exit_page: {
+                        type: "text",
+                        fields: {
+                            keyword: {
+                                type: "keyword",
+                            },
+                        },
+                    },
+                    events: { type: "keyword" },
+                    orders: { type: "keyword" },
                     createdAt: { type: "date" },
                     updatedAt: { type: "date" },
                 },
             },
         };
         try {
+            // check index exists
+            const exists = await ElasticService.indexExists("session");
+            if (exists?.body) {
+                console.log("Index 'session' already exists.");
+                return;
+            }
             await ElasticService.createIndex("session", mapping);
+            console.log("Index 'session' created successfully.");
         } catch (error) {
-            console.log(error?.meta?.body?.error?.type);
+            console.log(error);
         }
     },
     insert: async (data) => {
@@ -64,6 +78,7 @@ const SessionService = {
 
         await ElasticService.insertDocument("session", id, data)
             .catch((err) => {
+                console.log(err.meta.body.error);
                 logger.error(__filename, "APP", `Error while inserting session: ${err.meta.body.error.type}`);
             })
             .then((body) => {
@@ -73,19 +88,44 @@ const SessionService = {
     updateDocument: async (id, data) => {
         if (!id || !data) return;
 
-        await ElasticService.updateDocument("session", id, data)
+        const body = data.$set;
+        if (data?.$inc?.relevance_score) {
+            await ElasticService.increaseField("session", id, "relevance_score", data?.$inc?.relevance_score)
+                .catch((err) => {
+                    console.log(err.meta.body.error);
+                    logger.error(__filename, "APP", `Error while updating session: ${err.meta.body.error.type}`);
+                })
+                .then((body) => {});
+        }
+        await ElasticService.updateDocument("session", id, body)
             .catch((err) => {
                 console.log(err.meta.body.error);
                 logger.error(__filename, "APP", `Error while updating session: ${err.meta.body.error.type}`);
             })
             .then((body) => {});
     },
-    deleteDocument: async (id) => {
+    deleteDocById: async (id) => {
         await ElasticService.deleteDocument("session", id)
             .catch((err) => {
-                logger.error(__filename, "APP", `Error while deleting session: ${err.meta.body.error.type}`);
+                console.log(JSON.stringify(err.meta.body, null, 2));
+                logger.error(__filename, "APP", `Error while deleting session: ${err.meta.body.error?.type}`);
             })
-            .then((body) => {});
+            .then((data) => {
+                if (data?.body?.deleted) {
+                    console.log(`Deleted ${data?.body?.deleted} sessions`);
+                }
+            });
+    },
+    deleteDocByQuery: async (query) => {
+        await ElasticService.deleteDocumentByQuery("session", query)
+            .catch((err) => {
+                logger.error(__filename, "APP", `Error while deleting session: ${err.meta.body.error?.type}`);
+            })
+            .then((data) => {
+                if (data?.body?.deleted) {
+                    console.log(`Deleted ${data?.body?.deleted} sessions`);
+                }
+            });
     },
     insertDocument: async () => {
         let count = 0;
@@ -123,6 +163,13 @@ const SessionService = {
         pipeline.on("error", (err) => {
             console.error("❌ Error while parsing:", err);
         });
+    },
+    bulkInsert: async (data) => {
+        try {
+            await ElasticService.bulkInsert("session", data);
+        } catch (error) {
+            logger.error(__filename, "APP", `Error while bulk inserting session: ${error.message}`);
+        }
     },
     query: async ({ shopId, filter, limit, skip }) => {
         const query = SessionQueryBuilder.build(filter, shopId);

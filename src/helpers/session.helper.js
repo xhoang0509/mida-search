@@ -23,17 +23,17 @@ const SessionQueryBuilder = {
         const elk_must = [
             {
                 term: {
-                    shop: shopId, // "682e1c58419ef8e4aa521c07", // shopId,
+                    shop: shopId,
                 },
             },
-            // {
-            //     range: {
-            //         createdAt: {
-            //             gte: filter.createdAt["$gte"],
-            //             lte: filter.createdAt["$lte"],
-            //         },
-            //     },
-            // },
+            {
+                range: {
+                    createdAt: {
+                        gte: filter.createdAt["$gte"],
+                        lte: filter.createdAt["$lte"],
+                    },
+                },
+            },
         ];
 
         const elk_must_not = [];
@@ -47,16 +47,16 @@ const SessionQueryBuilder = {
 
         // visitor_ids
         if (filter?.visitor_ids) {
-            elk_must.push(ElasticQuery.terms("visitor.keyword", filter.visitor_ids));
+            elk_must.push(ElasticQuery.terms("visitor", filter.visitor_ids));
         }
 
         // events
         if (filter?.events) {
             if (filter?.events?.$in) {
-                elk_must.push(ElasticQuery.terms("events.keyword", filter.events.$in));
+                elk_must.push(ElasticQuery.terms("events", filter.events.$in));
             }
             if (filter?.events?.$nin) {
-                elk_must_not.push(ElasticQuery.terms("events.keyword", filter.events.$nin));
+                elk_must_not.push(ElasticQuery.terms("events", filter.events.$nin));
             }
         }
 
@@ -86,10 +86,10 @@ const SessionQueryBuilder = {
 
         // customer id
         if (filter?.customer_id?.$in) {
-            elk_must.push(ElasticQuery.terms("customer_id.keyword", filter.customer_id.$in));
+            elk_must.push(ElasticQuery.terms("customer_id", filter.customer_id.$in));
         }
         if (filter?.customer_id?.$nin && filter?.customer_id?.$nin.length > 0) {
-            elk_must_not.push(ElasticQuery.exists("customer_id.keyword"));
+            elk_must_not.push(ElasticQuery.exists("customer_id"));
         }
 
         // source type
@@ -124,7 +124,7 @@ const SessionQueryBuilder = {
 
         // location
         if (filter?.location?.$in) {
-            elk_must.push(ElasticQuery.terms("location.keyword", filter.location.$in));
+            elk_must.push(ElasticQuery.terms("location", filter.location.$in));
         }
 
         // IP
@@ -173,17 +173,17 @@ const SessionQueryBuilder = {
 
         // browser
         if (filter?.browser?.$in) {
-            elk_must.push(ElasticQuery.terms("browser.keyword", filter.browser.$in));
+            elk_must.push(ElasticQuery.terms("browser", filter.browser.$in));
         }
 
         // device
         if (filter?.device?.$in) {
-            elk_must.push(ElasticQuery.terms("device.keyword", filter.device.$in));
+            elk_must.push(ElasticQuery.terms("device", filter.device.$in));
         }
 
         // os
         if (filter?.os?.$in) {
-            elk_must.push(ElasticQuery.terms("os.keyword", filter.os.$in));
+            elk_must.push(ElasticQuery.terms("os", filter.os.$in));
         }
 
         // cart_value
@@ -200,6 +200,33 @@ const SessionQueryBuilder = {
                 ...(elk_must_not.length > 0 && { must_not: elk_must_not }),
                 ...(elk_filter.length > 0 && { filter: elk_filter }),
                 ...(elk_should.length > 0 && { should: elk_should, minimum_should_match: 1 }),
+            },
+        };
+    },
+
+    buildQueryDelete: (query) => {
+        const elk_must = [];
+
+        if (query?._id?.$in && query?._id?.$in?.length) {
+            elk_must.push(ElasticQuery.terms("_id", query._id.$in));
+        }
+
+        if (query?.key) {
+            elk_must.push(ElasticQuery.term("key", query.key));
+        }
+        if (query?.shop) {
+            elk_must.push(ElasticQuery.term("shop", query.shop));
+        }
+
+        if (query?.visitor) {
+            elk_must.push(ElasticQuery.term("visitor", query.visitor));
+        }
+        if (elk_must.length === 0) return null;
+        return {
+            query: {
+                bool: {
+                    must: elk_must,
+                },
             },
         };
     },
